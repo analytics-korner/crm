@@ -136,14 +136,18 @@ def list_whatsapp_conversations():
 			"last_message_at": msg.creation,
 		}
 
-	result = list(conversations.values())
-	for conversation in result:
+	result = []
+	for conversation in conversations.values():
+		# Older messages can point at a Lead/Deal that has since been deleted or merged.
+		if not frappe.db.exists(conversation["reference_doctype"], conversation["reference_name"]):
+			continue
 		conversation["title"] = get_from_name(conversation)
 		conversation["mobile_no"] = (
 			frappe.db.get_value("CRM Lead", conversation["reference_name"], "mobile_no")
 			if conversation["reference_doctype"] == "CRM Lead"
 			else None
 		)
+		result.append(conversation)
 
 	return result
 
