@@ -111,6 +111,44 @@ def is_whatsapp_installed():
 
 
 @frappe.whitelist()
+def list_whatsapp_conversations():
+	"""Latest WhatsApp message per CRM Lead/Deal, newest conversation first."""
+	validate_access()
+
+	messages = frappe.get_all(
+		"WhatsApp Message",
+		filters={"reference_doctype": ["in", ["CRM Lead", "CRM Deal"]]},
+		fields=["reference_doctype", "reference_name", "type", "message", "message_type", "status", "creation"],
+		order_by="creation desc",
+	)
+
+	conversations = {}
+	for msg in messages:
+		key = (msg.reference_doctype, msg.reference_name)
+		if key in conversations:
+			continue
+		conversations[key] = {
+			"reference_doctype": msg.reference_doctype,
+			"reference_name": msg.reference_name,
+			"last_message": msg.message,
+			"last_message_type": msg.type,
+			"last_message_status": msg.status,
+			"last_message_at": msg.creation,
+		}
+
+	result = list(conversations.values())
+	for conversation in result:
+		conversation["title"] = get_from_name(conversation)
+		conversation["mobile_no"] = (
+			frappe.db.get_value("CRM Lead", conversation["reference_name"], "mobile_no")
+			if conversation["reference_doctype"] == "CRM Lead"
+			else None
+		)
+
+	return result
+
+
+@frappe.whitelist()
 def get_whatsapp_messages(reference_doctype: str, reference_name: str):
 	reference_doc = validate_access(reference_doctype, reference_name)
 	# twilio integration app is not compatible with crm app
